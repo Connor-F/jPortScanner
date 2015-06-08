@@ -1,5 +1,8 @@
 import java.io.IOException;
 import java.net.*;
+import java.text.SimpleDateFormat;
+import java.text.DateFormat;
+import java.util.Date;
 
 /**
  * simple multi threaded TCP and UDP port scanner
@@ -13,56 +16,53 @@ public class PortScanner
     /** InetAddress of the host we want to port scan */
     private InetAddress ipAddr;
 
-    public PortScanner(InetAddress ipAddr, int lowest, int highest)
+    public PortScanner(InetAddress ipAddr, int lowest, int highest) throws PortRangeException
     {
+        if(lowest > highest)
+            throw new PortRangeException("The lower bound must be less than or equal to the upper bound");
+        if(lowest > 65535 || highest > 65535 || lowest < 0 || highest < 0)
+            throw new PortRangeException("Port numbers must be between 0 and 65535 (inclusive)");
+
         this.lowest = lowest;
         this.highest = highest;
         this.ipAddr = ipAddr;
         scanPorts();
     }
 
-    // todo: range checks on port numbers
-    // todo: provide host name & ip address at end of scan
     // todo: add map of ports to common services for a more informative output
-    // todo: add threading for udp and tcp scanning
-    // todo: improve % complete output
     private void scanPorts()
     {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+        System.out.print("Scan started at: " + dateFormat.format(new Date()));
+
         long start = System.currentTimeMillis();
-        int tcp = 0; // number of accepted TCP connections
-        int udp = 0; // number of accepted UDP connections
 
-        for(int i = lowest; i <= highest; i++)
+        TCPScanner tcpScanner = new TCPScanner(ipAddr, lowest, highest);
+        UDPScanner udpScanner = new UDPScanner(ipAddr, lowest, highest);
+        new Thread(tcpScanner).start();
+        new Thread(udpScanner).start();
+
+        int dotCounter = 0; // allows for simple progress monitor
+        while(!tcpScanner.isComplete() || !udpScanner.isComplete()) // block until both scanners have finished scanning
         {
-            double onePercent = (highest - lowest) / 100.0;
-            int percentComplete = (int)Math.floor(i / onePercent);
-            System.out.println(percentComplete + "% complete");
-
-            try(Socket connection = new Socket(ipAddr, i)) // TCP connection
+            try
             {
-                System.out.println("[TCP] Accepted at port: " + i);
-                tcp++;
+                Thread.sleep(300);
+                if(dotCounter++ % 40 == 0)
+                    System.out.println();
+                System.out.print(".");
             }
-            catch(IOException ioe)
+            catch (InterruptedException e)
             {
-                //System.out.println("[TCP] Refused at port: " + i);
-                //
-            }
-
-            try(DatagramSocket connection = new DatagramSocket(i, ipAddr)) // UDP connection
-            {
-                System.out.println("[UDP] Accepted at port: " + i);
-                udp++;
-            }
-            catch(SocketException se)
-            {
-                //System.out.println("[UDP] Refused at port: " + i);
+                e.printStackTrace();
             }
         }
 
+
         System.out.println("\n========================= SCAN COMPLETE =========================");
+        System.out.println("Scan finished at: " + dateFormat.format(new Date()));
+        System.out.println("Time taken: " + (System.currentTimeMillis() - start) / 1000.0 + "s");
         System.out.println("Resolved host name: " + ipAddr.getHostName() + " (" + ipAddr.getHostAddress() + ")");
-        System.out.println(tcp + " TCP port(s) open\n" + udp + " UDP port(s) open");
-        System.out.println("Port scan took " + (System.currentTimeMillis() - start) / 1000.0 + "s");
+        System.out.println(tcpScanner.getTcpCounter() + " TCP port(s) open\n" + udpScanner.getUdpCounter() + " UDP port(s) open");
     }
 }

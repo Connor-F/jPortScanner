@@ -7,11 +7,12 @@ public class Main
     {
         try
         {
-            new PortScanner(getInetAddress("213.206.113.225"), 1, 1000);
+            new PortScanner(getInetAddress("127.0.0.1"), 1, 10000);
         }
-        catch (IOException e)
+        catch (IOException | PortRangeException e)
         {
             e.printStackTrace();
+            e.getMessage();
         }
     }
 
