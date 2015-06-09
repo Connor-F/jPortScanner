@@ -7,7 +7,7 @@ public class Main
     {
         try
         {
-            new PortScanner(getInetAddress("127.0.0.1"), 1, 10000);
+            new PortScannerTool(getInetAddress("127.0.0.1"), 1, 10000);
         }
         catch (IOException | PortRangeException e)
         {
