@@ -13,17 +13,22 @@ public class TCPPortScanner extends PortScanner implements Runnable
     public void run()
     {
         int openCounter = 0;
-        for(int i = super.getLower(); i <= super.getUpper(); i++)
-            if(isOpen(i))
+        for(int i = getLower(); i <= getUpper(); i++)
+        {
+            setProgess(i - getLower());
+            if (isOpen(i))
                 openCounter++;
-        super.setOpenCounter(openCounter);
-        super.setIsComplete(true);
+        }
+        setOpenCounter(openCounter);
+        setProgess(getUpper());
+        setIsComplete(true);
     }
 
     public boolean isOpen(int port)
     {
-        try(Socket connection = new Socket(super.getInetAddress(), port))
+        try(Socket connection = new Socket(getInetAddress(), port))
         {
+            addOpenPort(port);
             return true;
         }
         catch(IOException ioe)
