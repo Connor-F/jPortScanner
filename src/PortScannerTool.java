@@ -1,19 +1,23 @@
-import java.io.FileNotFoundException;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.text.DateFormat;
 import java.util.*;
-import java.io.File;
+import java.io.*;
 
 /**
  * simple multi threaded TCP and UDP port scanner
  */
 public class PortScannerTool
 {
+    /** port to service name mappings for UDP services */
     private Map<Integer, String> commonUDPServices;
+    /** port to service name mappings for TCP services */
     private Map<Integer, String> commonTCPServices;
+    /** the TCP port scanner itself */
     private TCPPortScanner tcpScanner;
+    /** the UDP port scanner itself */
     private UDPPortScanner udpScanner;
+    /** stores the time the scan started (currentTimeMillis()) */
     private long start;
 
     public PortScannerTool(InetAddress ipAddr, int lowest, int highest) throws PortRangeException, FileNotFoundException
@@ -29,6 +33,12 @@ public class PortScannerTool
         outputResults(ipAddr);
     }
 
+    /**
+     * reads in the UDP_common_services file and populates a hashmap containing all the port to service mappings
+     * from the file
+     * @return hashmap will all the defined port to services mappings for UDP
+     * @throws FileNotFoundException when UDP_common_services file cannot be found
+     */
     private HashMap<Integer, String> readCommonUDPServices() throws FileNotFoundException
     {
         HashMap<Integer, String> services = new HashMap<>();
@@ -38,6 +48,12 @@ public class PortScannerTool
         return services;
     }
 
+    /**
+     * reads in the TCP_common_services file and populates a hashmap containing all the port to service mappings
+     * from the file
+     * @return hashmap will all the defined port to services mappings for TCP
+     * @throws FileNotFoundException when TCP_common_services file cannot be found
+     */
     private HashMap<Integer, String> readCommonTCPServices() throws FileNotFoundException
     {
         HashMap<Integer, String> services = new HashMap<>();
@@ -47,6 +63,12 @@ public class PortScannerTool
         return services;
     }
 
+    /**
+     * starts each port scanner running and blocks until they both complete
+     * @param ipAddr the InetAddress of the host we want to scan
+     * @param lowest the smallest port number provided
+     * @param highest the largest port number provided
+     */
     private void scanPorts(InetAddress ipAddr, int lowest, int highest)
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
@@ -64,8 +86,8 @@ public class PortScannerTool
             try
             {
                 Thread.sleep(150);
-                if(dotCounter++ % 10 == 0)
-                    System.out.print("\rTCP[" + tcpScanner.getProgess() + "/" + highest + "] UDP[" + udpScanner.getProgess() + "/" + highest + "]");
+                if(dotCounter++ % 10 == 0) // just for simple progress indicator
+                    System.out.print("\rProgress: TCP[" + tcpScanner.getProgress() + "/" + highest + "] UDP[" + udpScanner.getProgress() + "/" + highest + "]");
                 System.out.print(".");
             }
             catch (InterruptedException e)
@@ -73,15 +95,21 @@ public class PortScannerTool
                 System.out.println("Thread sleep failed: " + e.getMessage());
             }
         }
+        System.out.print("\rProgress: TCP[" + tcpScanner.getProgress() + "/" + highest + "] UDP[" + udpScanner.getProgress() + "/" + highest + "]");
     }
 
+    /**
+     * prints out the results of the scan. Including: the time taken, resolved host name, the number of TCP and UDP ports
+     * open, a list of the open ports and the services that run on these ports
+     * @param ipAddr the InetAddress of the host we scanned
+     */
     private void outputResults(InetAddress ipAddr)
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         System.out.println("\n========================= SCAN COMPLETE =========================");
-        System.out.println("Scan finished at: " + dateFormat.format(new Date()));
-        System.out.println("Time taken: " + (System.currentTimeMillis() - start) / 1000.0 + "s");
-        System.out.println("Resolved host name: " + ipAddr.getHostName() + " (" + ipAddr.getHostAddress() + ")");
+        System.out.println("- Scan finished at: " + dateFormat.format(new Date()));
+        System.out.println("- Time taken: " + (System.currentTimeMillis() - start) / 1000.0 + "s");
+        System.out.println("- Resolved host name: " + ipAddr.getHostName() + " (" + ipAddr.getHostAddress() + ")");
         System.out.println(tcpScanner.getOpenCounter() + " TCP port(s) open\n" + udpScanner.getOpenCounter() + " UDP port(s) open");
 
         ArrayList<Integer> openUDPPorts = udpScanner.getOpenPorts();
@@ -90,16 +118,39 @@ public class PortScannerTool
         {
             System.out.println("======================\nOpen UDP ports summary\n======================");
             for(Integer i : openUDPPorts)
-                if(commonUDPServices.get(i) != null)
+            {
+                if (commonUDPServices.get(i) != null)
                     System.out.println(i + ": " + commonUDPServices.get(i));
+                else
+                    System.out.println(i + ": <unknown>");
+            }
         }
 
         if(tcpScanner.getOpenCounter() > 0)
         {
             System.out.println("======================\nOpen TCP ports summary\n======================");
             for (Integer i : openTCPPorts)
+            {
                 if (commonTCPServices.get(i) != null)
                     System.out.println(i + ": " + commonTCPServices.get(i));
+                else
+                    System.out.println(i + ": <unknown>");
+            }
         }
+    }
+
+    /**
+     * allows a String IP address to be given and then converted into a InetAddress (which the Tool uses)
+     * @param in the IP address of the host we want to scan
+     * @return the InetAddress of the host we want to scan
+     * @throws IOException thrown if something goes wrong when creating the InetAddress (string provided invalid)
+     */
+    public static InetAddress getInetAddress(String in) throws IOException
+    {
+        String[] octets = in.split("\\."); // octets needed so a new InetAddress object can be made for the IP addr
+        byte[] addrBytes = new byte[4]; // max 4 bytes in ipv4 address
+        for(int i = 0; i < 4; i++)
+            addrBytes[i] = (byte) Integer.parseInt(octets[i]);
+        return InetAddress.getByAddress(addrBytes);
     }
 }
